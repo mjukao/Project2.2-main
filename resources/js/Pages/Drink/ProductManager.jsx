@@ -13,6 +13,9 @@ const categories = [
 ];
 
 const ProductManager = () => {
+    const [selectedCategory, setSelectedCategory] = useState("all"); // ✅ กำหนดค่าเริ่มต้นเป็น "all"
+    const [expandedCategory, setExpandedCategory] = useState(null); // ✅ เพิ่ม state สำหรับหมวดหมู่ที่ถูกขยาย
+
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -21,7 +24,7 @@ const ProductManager = () => {
         price: "",
         category_id: "",
         image: null,
-        image_url: ""
+        image_url: "",
     });
     const [editingProduct, setEditingProduct] = useState(null);
     const [originalProduct, setOriginalProduct] = useState(null);
@@ -38,6 +41,53 @@ const ProductManager = () => {
             .catch((err) => setError(err.message || "โหลดสินค้าไม่สำเร็จ"))
             .finally(() => setLoading(false));
     };
+
+    const categories = [
+        { id: "all", name: "ทั้งหมด" },
+        {
+            id: "1",
+            name: "เครื่องดื่ม",
+            subCategories: [
+                { id: "1", name: "ไม่มีแอลกอฮอล์" },
+                { id: "10", name: "มีแอลกอฮอล์" },
+            ],
+        },
+        {
+            id: "2",
+            name: "อาหาร",
+            subCategories: [
+                { id: "2", name: "อาหารจานเดียว" },
+                { id: "20", name: "กับข้าว" },
+            ],
+        },
+        {
+            id: "3",
+            name: "ขนม",
+            subCategories: [
+                { id: "3", name: "ขนมขบเคี้ยว" },
+                { id: "30", name: "เบเกอรี่" },
+            ],
+        },
+    ];
+
+    const handleCategoryClick = (categoryId) => {
+        setSelectedCategory(categoryId);
+        setExpandedCategory((prev) => (prev === categoryId ? null : categoryId));
+    };
+
+    const handleSubCategoryClick = (subCategoryId) => {
+        setSelectedCategory(subCategoryId);
+    };
+
+    const isExpanded = (categoryId) => expandedCategory === categoryId;
+
+    const filteredProducts =
+        selectedCategory === "all"
+            ? products
+            : products.filter(
+                  (product) =>
+                      product.category_id.toString() === selectedCategory
+              );
 
     const handleDeleteProduct = (id) => {
         if (!window.confirm("คุณต้องการลบรายการสินค้านี้ใช่หรือไม่?")) {
@@ -126,21 +176,27 @@ const ProductManager = () => {
             return;
         }
 
-        axios.post("/api/products", formData, {
-            headers: { "Content-Type": "multipart/form-data" }
-        })
-        .then(() => {
-            alert("เพิ่มสินค้าสำเร็จ!");
-            fetchProducts();
-            setNewProduct({ name: "", price: "", image: null, image_url: "", category_id: "" });
-            setShowAddModal(false);
-        })
-        .catch((error) => {
-            console.error("❌ Error:", error);
-            alert("เพิ่มสินค้าไม่สำเร็จ!");
-        });
+        axios
+            .post("/api/products", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            })
+            .then(() => {
+                alert("เพิ่มสินค้าสำเร็จ!");
+                fetchProducts();
+                setNewProduct({
+                    name: "",
+                    price: "",
+                    image: null,
+                    image_url: "",
+                    category_id: "",
+                });
+                setShowAddModal(false);
+            })
+            .catch((error) => {
+                console.error("❌ Error:", error);
+                alert("เพิ่มสินค้าไม่สำเร็จ!");
+            });
     };
-
 
     if (loading) return <h2 className="text-center">กำลังโหลดสินค้า...</h2>;
     if (error) return <h2 className="text-center text-red-500">{error}</h2>;
@@ -158,8 +214,41 @@ const ProductManager = () => {
                             <li
                                 key={category.id}
                                 className="py-2 px-3 hover:bg-orange-100 cursor-pointer"
+                                onClick={() => handleCategoryClick(category.id)}
                             >
                                 {category.name}
+                                {/* แสดงหมวดหมู่ย่อยถ้าเป็นหมวดหมู่ที่ถูกเลือก */}
+                                {isExpanded(category.id) &&
+                                    category.subCategories && (
+                                        <ul className="ml-4 mt-1 space-y-1">
+                                            {category.subCategories.map(
+                                                (sub) => (
+                                                    <motion.li
+                                                        key={sub.id}
+                                                        onClick={() =>
+                                                            handleSubCategoryClick(
+                                                                sub.id
+                                                            )
+                                                        } // ✅ ใช้ฟังก์ชันใหม่
+                                                        className={`py-1 px-3 rounded-md text-md cursor-pointer transition-all duration-300 ${
+                                                            selectedCategory ===
+                                                            sub.id
+                                                                ? "bg-orange-200 text-orange-800 font-bold"
+                                                                : "hover:bg-orange-100"
+                                                        }`}
+                                                        whileHover={{
+                                                            scale: 1.05,
+                                                        }}
+                                                        whileTap={{
+                                                            scale: 0.95,
+                                                        }}
+                                                    >
+                                                        {sub.name}
+                                                    </motion.li>
+                                                )
+                                            )}
+                                        </ul>
+                                    )}
                             </li>
                         ))}
                     </ul>
@@ -171,20 +260,30 @@ const ProductManager = () => {
                         จัดการสินค้า
                     </h1>
                     <div>
-                        <button onClick={() => setShowAddModal(true)} className="px-4 py-2 bg-green-500 text-white rounded">
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="px-4 py-2 bg-green-500 text-white rounded"
+                        >
                             เพิ่มสินค้า
                         </button>
 
                         {showAddModal && (
                             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
                                 <div className="bg-white p-6 rounded shadow-lg w-96">
-                                    <h2 className="text-lg font-bold mb-4">เพิ่มสินค้าใหม่</h2>
+                                    <h2 className="text-lg font-bold mb-4">
+                                        เพิ่มสินค้าใหม่
+                                    </h2>
 
                                     <input
                                         type="text"
                                         placeholder="ชื่อสินค้า"
                                         value={newProduct.name}
-                                        onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                                        onChange={(e) =>
+                                            setNewProduct({
+                                                ...newProduct,
+                                                name: e.target.value,
+                                            })
+                                        }
                                         className="w-full p-2 border rounded mb-2"
                                     />
 
@@ -192,50 +291,80 @@ const ProductManager = () => {
                                         type="number"
                                         placeholder="ราคา"
                                         value={newProduct.price}
-                                        onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                                        onChange={(e) =>
+                                            setNewProduct({
+                                                ...newProduct,
+                                                price: e.target.value,
+                                            })
+                                        }
                                         className="w-full p-2 border rounded mb-2"
                                     />
 
                                     <select
                                         value={newProduct.category_id}
-                                        onChange={(e) => setNewProduct({...newProduct, category_id: e.target.value})}
+                                        onChange={(e) =>
+                                            setNewProduct({
+                                                ...newProduct,
+                                                category_id: e.target.value,
+                                            })
+                                        }
                                         className="w-full p-2 border rounded mb-2"
                                     >
                                         <option value="">เลือกหมวดหมู่</option>
                                         {categories.map((category) => (
-                                            <option key={category.id} value={category.id}>
+                                            <option
+                                                key={category.id}
+                                                value={category.id}
+                                            >
                                                 {category.name}
                                             </option>
                                         ))}
                                     </select>
 
                                     <div className="mb-2">
-                                        <label className="block">เลือกรูปภาพ (ไฟล์ หรือ URL)</label>
+                                        <label className="block">
+                                            เลือกรูปภาพ (ไฟล์ หรือ URL)
+                                        </label>
                                         <input
                                             type="file"
                                             accept="image/*"
-                                            onChange={(e) => setNewProduct({...newProduct, image: e.target.files[0], image_url: ""})}
+                                            onChange={(e) =>
+                                                setNewProduct({
+                                                    ...newProduct,
+                                                    image: e.target.files[0],
+                                                    image_url: "",
+                                                })
+                                            }
                                             className="w-full p-2 border rounded mb-2"
                                         />
                                         <input
-    type="text"
-    placeholder="ใส่ URL รูปภาพ"
-    value={newProduct.image_url}
-    onChange={(e) => setNewProduct({
-        ...newProduct,
-        image_url: e.target.value, // ✅ อัปเดต URL
-        image: null // ✅ เคลียร์ค่า image ถ้ามี URL
-    })}
-    className="border rounded"
-/>
-
+                                            type="text"
+                                            placeholder="ใส่ URL รูปภาพ"
+                                            value={newProduct.image_url}
+                                            onChange={(e) =>
+                                                setNewProduct({
+                                                    ...newProduct,
+                                                    image_url: e.target.value, // ✅ อัปเดต URL
+                                                    image: null, // ✅ เคลียร์ค่า image ถ้ามี URL
+                                                })
+                                            }
+                                            className="border rounded"
+                                        />
                                     </div>
 
                                     <div className="flex justify-end mt-4">
-                                        <button onClick={handleAddProduct} className="px-4 py-2 bg-blue-500 text-white rounded mr-2">
+                                        <button
+                                            onClick={handleAddProduct}
+                                            className="px-4 py-2 bg-blue-500 text-white rounded mr-2"
+                                        >
                                             บันทึก
                                         </button>
-                                        <button onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-400 text-white rounded">
+                                        <button
+                                            onClick={() =>
+                                                setShowAddModal(false)
+                                            }
+                                            className="px-4 py-2 bg-gray-400 text-white rounded"
+                                        >
                                             ยกเลิก
                                         </button>
                                     </div>
@@ -246,7 +375,7 @@ const ProductManager = () => {
 
                     {/* รายการสินค้า */}
                     <div className="grid grid-cols-5 gap-4">
-                        {products.map((product) => (
+                        {filteredProducts.map((product) => (
                             <motion.div
                                 key={product.id}
                                 className="border rounded-lg shadow-md p-4 bg-white flex flex-col items-center"
@@ -274,7 +403,9 @@ const ProductManager = () => {
                                         แก้ไข
                                     </button>
                                     <button
-                                        onClick={() => handleDeleteProduct(product.id)}
+                                        onClick={() =>
+                                            handleDeleteProduct(product.id)
+                                        }
                                         className="px-3 py-1 bg-red-500 text-white rounded"
                                     >
                                         ลบ
