@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { Inertia } from '@inertiajs/inertia';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 const BillSummary = () => {
@@ -9,7 +10,9 @@ const BillSummary = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedBill, setSelectedBill] = useState(null);
 
-    useEffect(() => {
+    // โหลดข้อมูลบิลสรุปจาก API
+    const fetchBillSummary = () => {
+        setLoading(true);
         axios.get('/api/bills/summary')
             .then((response) => {
                 setBillSummary(response.data);
@@ -20,6 +23,10 @@ const BillSummary = () => {
             .finally(() => {
                 setLoading(false);
             });
+    };
+
+    useEffect(() => {
+        fetchBillSummary(); // เรียก API ตอนโหลดหน้า
     }, []);
 
     const toggleMenu = () => {
@@ -27,7 +34,7 @@ const BillSummary = () => {
     };
 
     const handleHistoryClick = () => {
-        alert('ไปยังหน้าประวัติการสั่งซื้อ (ต้องเพิ่มเส้นทางใน router)');
+        Inertia.get(route('billhistory'));
         setIsMenuOpen(false);
     };
 
@@ -42,15 +49,21 @@ const BillSummary = () => {
     const handlePayment = () => {
         if (!selectedBill) return;
 
-        axios.post('/api/bills/pay', { table_number: selectedBill.table_number })
-            .then((response) => {
-                alert(`ชำระเงินสำหรับโต๊ะ ${selectedBill.table_number} เรียบร้อย!`);
-                setBillSummary(billSummary.filter(bill => bill.table_number !== selectedBill.table_number));
-                setSelectedBill(null);
-            })
-            .catch((err) => {
-                alert('เกิดข้อผิดพลาดในการชำระเงิน: ' + (err.message || 'Unknown error'));
-            });
+        if (window.confirm(`คุณต้องการชำระเงินสำหรับโต๊ะ ${selectedBill.table_number} หรือไม่?`)) {
+            axios.post('/api/bills/pay', { table_number: selectedBill.table_number })
+                .then(() => {
+                    alert(`ชำระเงินสำหรับโต๊ะ ${selectedBill.table_number} เรียบร้อย!`);
+
+                    // 🔥 โหลดข้อมูลใหม่จาก API หลังจากชำระเงิน
+                    fetchBillSummary();
+
+                    // ล้างค่าบิลที่ถูกเลือก
+                    setSelectedBill(null);
+                })
+                .catch((err) => {
+                    alert('เกิดข้อผิดพลาดในการชำระเงิน: ' + (err.message || 'Unknown error'));
+                });
+        }
     };
 
     if (loading) return <h2 style={{ textAlign: 'center' }}>กำลังโหลดข้อมูลสรุปบิล...</h2>;
@@ -75,18 +88,18 @@ const BillSummary = () => {
     };
 
     const gearButtonStyle = {
-        position: 'fixed', // เปลี่ยนเป็น fixed เพื่อให้อยู่นิ่งที่มุมขวาบนของหน้าจอ
+        position: 'fixed',
         top: '20px',
         right: '20px',
         background: 'none',
         border: 'none',
         fontSize: '24px',
         cursor: 'pointer',
-        zIndex: 1001, // ให้อยู่เหนือ Modal
+        zIndex: 1001,
     };
 
     const dropdownStyle = {
-        position: 'fixed', // เปลี่ยนเป็น fixed เพื่อให้เมนูสัมพันธ์กับปุ่ม
+        position: 'fixed',
         top: '50px',
         right: '20px',
         backgroundColor: '#fff',
@@ -94,7 +107,7 @@ const BillSummary = () => {
         borderRadius: '4px',
         boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
         display: isMenuOpen ? 'block' : 'none',
-        zIndex: 1001, // ให้อยู่เหนือ Modal
+        zIndex: 1001,
     };
 
     const dropdownItemStyle = {
@@ -151,7 +164,6 @@ const BillSummary = () => {
 
     return (
         <AuthenticatedLayout>
-            {/* ปุ่มฟันเฟืองและเมนูดรอปดาวน์อยู่นอก container */}
             <button style={gearButtonStyle} onClick={toggleMenu}>
                 ⚙️
             </button>
@@ -161,18 +173,19 @@ const BillSummary = () => {
                 </div>
             </div>
 
-            {/* ส่วนรายการบิล */}
             <div style={containerStyle}>
                 <ul style={billListStyle}>
                     {billSummary.map((bill) => (
                         <li
-                            key={bill.table_number}
+                            key={bill.id} // ✅ เปลี่ยนจาก table_number เป็น id
+                            table={bill.table_number}
                             style={billItemStyle}
                             onClick={() => handleBillClick(bill)}
                         >
+                            <strong>บิล #{bill.id}</strong> {/* ✅ เพิ่ม bill.id */}
+                            <br />
                             <strong>โต๊ะ: {bill.table_number}</strong>
                             <br />
-                            <span>รวม: ${bill.total}</span>
                             <ul>
                                 {bill.items.map((item, index) => (
                                     <li key={`${item.product.id}-${index}`}>
@@ -180,12 +193,12 @@ const BillSummary = () => {
                                     </li>
                                 ))}
                             </ul>
+                            <span>รวม: ${bill.total}</span>
                         </li>
                     ))}
                 </ul>
             </div>
 
-            {/* Modal สำหรับแสดงบิลที่เลือก */}
             {selectedBill && (
                 <>
                     <div style={overlayStyle} onClick={closeModal}></div>

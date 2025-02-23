@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -18,7 +19,7 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        \Log::info("🔍 Data received from Frontend:", $request->all()); // ✅ Log เช็คค่าที่ได้รับ
+        Log::info("🔍 Data received from Frontend:", $request->all()); // ✅ Log เช็คค่าที่ได้รับ
 
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
@@ -41,11 +42,11 @@ class ProductController extends Controller
 
         // ✅ ตรวจสอบอีกครั้งว่ามี `image_url` หรือไม่ก่อนบันทึก
         if (!isset($validatedData['image_url']) || empty($validatedData['image_url'])) {
-            \Log::warning("❌ ไม่มีรูปภาพหรือ URL ถูกส่งมา");
+            Log::warning("❌ ไม่มีรูปภาพหรือ URL ถูกส่งมา");
             return response()->json(['error' => 'ต้องมีรูปภาพหรือ URL'], 422);
         }
 
-        \Log::info("✅ Data to be saved (Final):", $validatedData); // ✅ Log ตรวจสอบค่าก่อนบันทึก
+        Log::info("✅ Data to be saved (Final):", $validatedData); // ✅ Log ตรวจสอบค่าก่อนบันทึก
 
         $product = Product::create($validatedData);
 

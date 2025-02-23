@@ -33,7 +33,7 @@ Route::post('login', [AuthController::class, 'login']);
 Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 Route::get('/bills/summary', [BillSummaryController::class, 'summary']);
-Route::get('/bills', [BillController::class, 'index']);
-Route::post('/bills', [BillController::class, 'store']);
 
 Route::patch('/bills/{bill}/complete', [BillController::class, 'complete']);
+Route::patch('/bills/{bill}/update-items', [BillController::class, 'updateItems']); // ✅ เพิ่ม Route นี้
+Route::delete('/bills/{bill}', [BillController::class, 'destroy']);
